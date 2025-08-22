@@ -1,0 +1,49 @@
+# Игнорируем все датасеты
+*.jsonl
+*.jsonl.gz
+
+# Игнорируем папки с датасетами
+v1.0/
+efficient_qa/
+simplified_qa/
+
+# Игнорируем файлы логов и отчетов
+*.log
+
+# Игнорируем базу данных SQLite
+*.db
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+env/
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+
+# Virtual Environment
+venv/
+ENV/
+Scripts/
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+*~

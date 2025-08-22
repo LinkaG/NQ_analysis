@@ -1,0 +1,98 @@
+Processing Report
+================================================================================
+
+Processing Time
+--------------------------------------------------------------------------------
+Started: 2025-08-22 04:45:14.327773
+Finished: 2025-08-22 12:16:50.182616
+Total time: 7:31:35.854843
+
+Simplified NQ Dataset Statistics
+--------------------------------------------------------------------------------
+Total questions loaded: 307223
+
+Efficient QA Dev Dataset
+--------------------------------------------------------------------------------
+Total questions: 1800
+Matches found: 81
+Match rate: 4.5%
+
+Example matches from dev:
+
+Efficient QA Question: when was harry potter and the deathly hallows part 2 movie released
+Answer: 13–15 July 2011
+NQ Question: when was harry potter and the deathly hallows part 2 released
+URL: https://en.wikipedia.org//w/index.php?title=Harry_Potter_and_the_Deathly_Hallows_%E2%80%93_Part_2&amp;oldid=832488103
+Similarity: 0.90
+----------------------------------------
+
+Efficient QA Question: when did the harry potter movie come out
+Answer: 2001
+NQ Question: when did harry potter the movie come out
+URL: https://en.wikipedia.org//w/index.php?title=Harry_Potter_(film_series)&amp;oldid=817529777
+Similarity: 1.00
+----------------------------------------
+
+Efficient QA Question: where was the eastern front located in ww1
+Answer: included most of Eastern Europe
+NQ Question: where was the eastern front in ww1 located
+URL: https://en.wikipedia.org//w/index.php?title=Eastern_Front_(World_War_I)&amp;oldid=843615573
+Similarity: 1.00
+----------------------------------------
+
+Efficient QA Question: when do meredith and derek get back together in season 2
+Answer: Losing My Religion
+NQ Question: when do derek and meredith get back together in season 2
+URL: https://en.wikipedia.org//w/index.php?title=Grey%27s_Anatomy_(season_2)&amp;oldid=848483078
+Similarity: 1.00
+----------------------------------------
+
+Efficient QA Question: who plays cindy lou who on the grinch
+Answer: Taylor Michel Momsen
+NQ Question: who plays cindy lou who in the grinch
+URL: https://en.wikipedia.org//w/index.php?title=Taylor_Momsen&amp;oldid=853493691
+Similarity: 1.00
+----------------------------------------
+
+Efficient QA Test Dataset
+--------------------------------------------------------------------------------
+Total questions: 1769
+Matches found: 100
+Match rate: 5.7%
+
+Example matches from test:
+
+Efficient QA Question: where does love it or list too take place
+Answer: Toronto, Ontario, Canada
+NQ Question: where does love it or list it too take place
+URL: https://en.wikipedia.org//w/index.php?title=Love_It_or_List_It&amp;oldid=824586997
+Similarity: 1.00
+----------------------------------------
+
+Efficient QA Question: who sings this is me on the greatest showman
+Answer: Keala Settle
+NQ Question: who sings the greatest showman this is me
+URL: https://en.wikipedia.org//w/index.php?title=This_Is_Me_(Keala_Settle_song)&amp;oldid=856552540
+Similarity: 1.00
+----------------------------------------
+
+Efficient QA Question: who will run for governor of texas in 2018
+Answer: Mark Tippetts
+NQ Question: who will run for texas governor in 2018
+URL: https://en.wikipedia.org//w/index.php?title=Texas_gubernatorial_election,_2018&amp;oldid=834439192
+Similarity: 1.00
+----------------------------------------
+
+Efficient QA Question: who lives in the end of truth or dare
+Answer: Markie
+NQ Question: who lives at the end of truth or dare
+URL: https://en.wikipedia.org//w/index.php?title=Truth_or_Dare_(2017_film)&amp;oldid=833705086
+Similarity: 1.00
+----------------------------------------
+
+Efficient QA Question: who sang the theme song for dukes of hazzard
+Answer: Waylon Jennings
+NQ Question: who sang the theme song to dukes of hazzard
+URL: https://en.wikipedia.org//w/index.php?title=Theme_from_The_Dukes_of_Hazzard_(Good_Ol%27_Boys)&amp;oldid=852429021
+Similarity: 1.00
+----------------------------------------
