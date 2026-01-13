@@ -6,6 +6,7 @@
 v1.0/
 efficient_qa/
 simplified_qa/
+nq_open/
 
 # Игнорируем файлы логов и отчетов
 *.log

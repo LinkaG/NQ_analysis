@@ -1,119 +1,73 @@
 import json
 import gzip
-import os
-from typing import Dict, List, Tuple, Set
-from collections import defaultdict
-import string
-import re
 import logging
 from datetime import datetime
+from typing import Dict, Any, List, Set
+import os
 
 # Настройка логирования
 logging.basicConfig(
     level=logging.INFO,
     format='%(asctime)s - %(levelname)s - %(message)s',
     handlers=[
-        logging.FileHandler('processing.log'),
+        logging.FileHandler('processing_report.txt'),
         logging.StreamHandler()
     ]
 )
 
-def normalize_text(text: str) -> str:
-    """
-    Базовая нормализация текста
-    """
-    text = text.lower().strip()
-    text = re.sub(f'[{string.punctuation}]', ' ', text)
-    text = ' '.join(text.split())
-    return text
+def normalize_question(text: str) -> str:
+    """Нормализация текста вопроса"""
+    return text.lower().strip()
 
-def get_keywords(text: str) -> Set[str]:
+def load_simplified_nq(filepath: str) -> Dict[str, dict]:
     """
-    Извлекает ключевые слова из текста
+    Загружает данные из Simplified NQ датасета
+    Возвращает словарь: нормализованный вопрос -> полные данные
     """
-    text = normalize_text(text)
-    stop_words = {'a', 'an', 'the', 'is', 'was', 'were', 'will', 'be', 'in', 'on', 'at', 'to', 'for', 'of'}
-    words = [w for w in text.split() if w not in stop_words]
-    return set(words)
-
-def calculate_similarity(keywords1: Set[str], keywords2: Set[str]) -> float:
-    """
-    Вычисляет схожесть между двумя наборами ключевых слов
-    """
-    if not keywords1 or not keywords2:
-        return 0.0
+    questions_dict = {}
+    total_processed = 0
     
-    intersection = len(keywords1 & keywords2)
-    union = len(keywords1 | keywords2)
-    
-    return intersection / union
-
-def process_nq_file(filepath: str, questions_by_keyword: Dict[str, List[Tuple[str, str, Set[str]]]]) -> int:
-    """
-    Обрабатывает один файл из NQ датасета
-    """
-    processed = 0
     try:
         with gzip.open(filepath, 'rt', encoding='utf-8') as f:
-            for line in f:
+            for line_num, line in enumerate(f, 1):
                 try:
                     data = json.loads(line.strip())
                     question = data.get('question_text', '').strip()
-                    url = data.get('document_url', '')
                     
-                    if question and url:
-                        keywords = get_keywords(question)
+                    if question:
+                        normalized_question = normalize_question(question)
+                        questions_dict[normalized_question] = data
+                        total_processed += 1
                         
-                        # Для каждого ключевого слова сохраняем связь с вопросом
-                        for keyword in keywords:
-                            questions_by_keyword[keyword].append((question, url, keywords))
-                        processed += 1
+                        if line_num % 10000 == 0:
+                            logging.info(f"Processed {line_num} lines from simplified NQ dataset")
                 
                 except json.JSONDecodeError:
+                    logging.error(f"Error parsing JSON at line {line_num} in simplified NQ")
                     continue
                 except Exception as e:
-                    logging.error(f"Error processing line in {filepath}: {str(e)}")
+                    logging.error(f"Error processing line {line_num} in simplified NQ: {str(e)}")
+                    continue
+    
     except Exception as e:
-        logging.error(f"Error processing file {filepath}: {str(e)}")
+        logging.error(f"Error reading file {filepath}: {str(e)}")
     
-    return processed
+    logging.info(f"Finished loading simplified NQ dataset. Total questions: {total_processed}")
+    return questions_dict
 
-def find_matches(
-    target_question: str,
-    questions_by_keyword: Dict[str, List[Tuple[str, str, Set[str]]]],
-    threshold: float = 0.9  # Повышенный порог схожести
-) -> List[Tuple[str, str, float]]:
-    """
-    Ищет похожие вопросы
-    """
-    target_keywords = get_keywords(target_question)
-    candidates = {}  # question -> (url, similarity)
-    
-    # Собираем кандидатов по каждому ключевому слову
-    for keyword in target_keywords:
-        if keyword in questions_by_keyword:
-            for q, url, keywords in questions_by_keyword[keyword]:
-                similarity = calculate_similarity(target_keywords, keywords)
-                if similarity >= threshold:
-                    if q not in candidates or candidates[q][1] < similarity:
-                        candidates[q] = (url, similarity)
-    
-    # Сортируем результаты по убыванию схожести
-    results = [(q, url, sim) for q, (url, sim) in candidates.items()]
-    return sorted(results, key=lambda x: x[2], reverse=True)
-
-def process_efficient_qa(
+def process_nq_open(
     input_file: str,
     output_file: str,
     unmatched_file: str,
-    questions_by_keyword: Dict[str, List[Tuple[str, str, Set[str]]]]
-) -> Tuple[int, int, List[Tuple[str, str, float]]]:
+    simplified_nq: Dict[str, dict]
+) -> tuple[int, int, List[tuple[str, str]]]:
     """
-    Обрабатывает файл из efficient_qa датасета
+    Обрабатывает файл из NQ-open датасета
+    Возвращает: (обработано, найдено совпадений, примеры)
     """
     processed = 0
     matches_found = 0
-    match_examples = []  # Сохраняем примеры совпадений для логов
+    match_examples = []  # [(nq_open_question, simplified_nq_question)]
     
     with open(input_file, 'r', encoding='utf-8') as fin, \
          open(output_file, 'w', encoding='utf-8') as fout, \
@@ -123,44 +77,55 @@ def process_efficient_qa(
             try:
                 data = json.loads(line.strip())
                 question = data.get('question', '').strip()
-                answer = data.get('answer', [''])[0]  # Сохраняем ответ для логов
+                answer = data.get('answer', [])
                 
-                # Ищем похожие вопросы
-                similar = find_matches(question, questions_by_keyword)
+                # Нормализуем вопрос
+                normalized_question = normalize_question(question)
                 
-                if similar:
-                    # Берем URL из лучшего совпадения
-                    best_match = similar[0]
-                    data['document_url'] = best_match[1]
-                    data['nq_similarity'] = best_match[2]
-                    data['nq_question'] = best_match[0]
+                # Ищем соответствие в simplified NQ
+                if normalized_question in simplified_nq:
+                    # Получаем данные из simplified NQ
+                    simplified_data = simplified_nq[normalized_question]
+                    
+                    # Создаем новую запись, объединяя данные
+                    merged_data = {
+                        'question': question,  # оригинальный вопрос из NQ-open
+                        'answer': answer,      # оригинальный ответ из NQ-open
+                        'document_text': simplified_data.get('document_text', ''),
+                        'document_url': simplified_data.get('document_url', ''),
+                        'annotations': simplified_data.get('annotations', []),
+                        'long_answer_candidates': simplified_data.get('long_answer_candidates', []),
+                        'example_id': simplified_data.get('example_id', '')
+                    }
+                    
+                    # Записываем объединенные данные
+                    fout.write(json.dumps(merged_data, ensure_ascii=False) + '\n')
                     matches_found += 1
                     
-                    # Сохраняем пример для логов
-                    if len(match_examples) < 5:  # Сохраняем только первые 5 примеров
+                    # Сохраняем пример для отчета
+                    if len(match_examples) < 5:
                         match_examples.append((
                             question,
-                            answer,
-                            best_match[0],  # NQ вопрос
-                            best_match[2]   # схожесть
+                            simplified_data.get('question_text', '')
                         ))
                 else:
+                    # Сохраняем ненайденный вопрос
                     funmatched.write(json.dumps({
                         'question': question,
                         'answer': answer
                     }, ensure_ascii=False) + '\n')
                 
-                # Записываем обновленные данные
-                fout.write(json.dumps(data, ensure_ascii=False) + '\n')
                 processed += 1
                 
-                if processed % 100 == 0:
-                    logging.info(f"Processed {processed} questions, found matches for {matches_found}")
+                if processed % 1000 == 0:
+                    logging.info(f"Processed {processed} questions from NQ-open, found matches for {matches_found}")
                 
             except json.JSONDecodeError:
+                logging.error(f"Error parsing JSON in NQ-open dataset")
                 continue
             except Exception as e:
-                logging.error(f"Error processing line: {str(e)}")
+                logging.error(f"Error processing question in NQ-open: {str(e)}")
+                continue
     
     return processed, matches_found, match_examples
 
@@ -168,50 +133,32 @@ def main():
     start_time = datetime.now()
     logging.info("Starting dataset processing")
     
-    # Индексируем NQ датасет
-    logging.info("Building index from NQ dataset...")
-    questions_by_keyword = defaultdict(list)
-    total_nq_processed = 0
+    # Пути к файлам
+    simplified_nq = 'simplified_qa/v1.0-simplified_simplified-nq-train.jsonl.gz'
+    nq_open_train = 'nq_open/NQ-open.train.jsonl'
+    nq_open_dev = 'nq_open/NQ-open.dev.jsonl'
     
-    # Обрабатываем train файлы
-    train_dir = 'v1.0/train'
-    train_files = sorted([f for f in os.listdir(train_dir) if f.endswith('.jsonl.gz')])
-    for i, filename in enumerate(train_files):
-        filepath = os.path.join(train_dir, filename)
-        logging.info(f"Processing {filename} ({i+1}/{len(train_files)})")
-        processed = process_nq_file(filepath, questions_by_keyword)
-        total_nq_processed += processed
+    # Выходные файлы
+    train_output = 'nq_open/NQ-open.train.merged.jsonl'
+    dev_output = 'nq_open/NQ-open.dev.merged.jsonl'
+    train_unmatched = 'nq_open/unmatched_questions_train.jsonl'
+    dev_unmatched = 'nq_open/unmatched_questions_dev.jsonl'
     
-    # Обрабатываем dev файлы
-    dev_dir = 'v1.0/dev'
-    dev_files = sorted([f for f in os.listdir(dev_dir) if f.endswith('.jsonl.gz')])
-    for i, filename in enumerate(dev_files):
-        filepath = os.path.join(dev_dir, filename)
-        logging.info(f"Processing {filename} ({i+1}/{len(dev_files)})")
-        processed = process_nq_file(filepath, questions_by_keyword)
-        total_nq_processed += processed
+    # Загружаем simplified NQ датасет
+    logging.info(f"Loading simplified NQ dataset: {simplified_nq}")
+    simplified_nq_data = load_simplified_nq(simplified_nq)
+    logging.info(f"Loaded {len(simplified_nq_data)} questions from simplified NQ dataset")
     
-    logging.info(f"Index built. Processed {total_nq_processed} questions from NQ dataset")
-    logging.info(f"Total unique keywords: {len(questions_by_keyword)}")
-    
-    # Обрабатываем efficient_qa dev датасет
-    logging.info("Processing efficient_qa dev dataset...")
-    dev_input = 'efficient_qa/NQ-open.efficientqa.dev.1.1.jsonl'
-    dev_output = 'efficient_qa/NQ-open.efficientqa.dev.with_refs.1.1.jsonl'
-    dev_unmatched = 'efficient_qa/unmatched_questions_dev.txt'
-    
-    dev_processed, dev_matches, dev_examples = process_efficient_qa(
-        dev_input, dev_output, dev_unmatched, questions_by_keyword
+    # Обрабатываем train датасет
+    logging.info("Processing NQ-open train dataset...")
+    train_processed, train_matches, train_examples = process_nq_open(
+        nq_open_train, train_output, train_unmatched, simplified_nq_data
     )
     
-    # Обрабатываем efficient_qa test датасет
-    logging.info("Processing efficient_qa test dataset...")
-    test_input = 'efficient_qa/NQ-open.efficientqa.test.1.1.jsonl'
-    test_output = 'efficient_qa/NQ-open.efficientqa.test.with_refs.1.1.jsonl'
-    test_unmatched = 'efficient_qa/unmatched_questions_test.txt'
-    
-    test_processed, test_matches, test_examples = process_efficient_qa(
-        test_input, test_output, test_unmatched, questions_by_keyword
+    # Обрабатываем dev датасет
+    logging.info("Processing NQ-open dev dataset...")
+    dev_processed, dev_matches, dev_examples = process_nq_open(
+        nq_open_dev, dev_output, dev_unmatched, simplified_nq_data
     )
     
     # Записываем подробный отчет
@@ -228,44 +175,41 @@ def main():
         f.write(f"Finished: {end_time}\n")
         f.write(f"Total time: {processing_time}\n\n")
         
-        f.write("NQ Dataset Statistics\n")
+        f.write("Simplified NQ Dataset Statistics\n")
         f.write("-" * 80 + "\n")
-        f.write(f"Total questions processed: {total_nq_processed}\n")
-        f.write(f"Unique keywords extracted: {len(questions_by_keyword)}\n\n")
+        f.write(f"Total questions loaded: {len(simplified_nq_data)}\n\n")
         
-        f.write("Efficient QA Dev Dataset\n")
+        f.write("NQ-open Train Dataset\n")
+        f.write("-" * 80 + "\n")
+        f.write(f"Total questions: {train_processed}\n")
+        f.write(f"Matches found: {train_matches}\n")
+        f.write(f"Unmatched questions: {train_processed - train_matches}\n")
+        f.write(f"Match rate: {train_matches/train_processed*100:.1f}%\n\n")
+        
+        f.write("Example matches from train:\n")
+        for q1, q2 in train_examples:
+            f.write(f"\nNQ-open Question: {q1}\n")
+            f.write(f"Simplified NQ Question: {q2}\n")
+            f.write("-" * 40 + "\n")
+        
+        f.write("\nNQ-open Dev Dataset\n")
         f.write("-" * 80 + "\n")
         f.write(f"Total questions: {dev_processed}\n")
         f.write(f"Matches found: {dev_matches}\n")
+        f.write(f"Unmatched questions: {dev_processed - dev_matches}\n")
         f.write(f"Match rate: {dev_matches/dev_processed*100:.1f}%\n\n")
         
         f.write("Example matches from dev:\n")
-        for q1, a1, q2, sim in dev_examples:
-            f.write(f"\nEfficient QA Question: {q1}\n")
-            f.write(f"Answer: {a1}\n")
-            f.write(f"NQ Question: {q2}\n")
-            f.write(f"Similarity: {sim:.2f}\n")
-            f.write("-" * 40 + "\n")
-        
-        f.write("\nEfficient QA Test Dataset\n")
-        f.write("-" * 80 + "\n")
-        f.write(f"Total questions: {test_processed}\n")
-        f.write(f"Matches found: {test_matches}\n")
-        f.write(f"Match rate: {test_matches/test_processed*100:.1f}%\n\n")
-        
-        f.write("Example matches from test:\n")
-        for q1, a1, q2, sim in test_examples:
-            f.write(f"\nEfficient QA Question: {q1}\n")
-            f.write(f"Answer: {a1}\n")
-            f.write(f"NQ Question: {q2}\n")
-            f.write(f"Similarity: {sim:.2f}\n")
+        for q1, q2 in dev_examples:
+            f.write(f"\nNQ-open Question: {q1}\n")
+            f.write(f"Simplified NQ Question: {q2}\n")
             f.write("-" * 40 + "\n")
     
     # Выводим итоговую статистику
     logging.info("\nProcessing completed!")
     logging.info(f"Processing time: {processing_time}")
+    logging.info(f"Train dataset: processed {train_processed} questions, found matches for {train_matches}")
     logging.info(f"Dev dataset: processed {dev_processed} questions, found matches for {dev_matches}")
-    logging.info(f"Test dataset: processed {test_processed} questions, found matches for {test_matches}")
     logging.info("Detailed report saved to processing_report.txt")
 
 if __name__ == "__main__":

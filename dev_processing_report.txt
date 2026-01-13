@@ -1,0 +1,8 @@
+2025-08-29 02:03:11,789 - INFO - Starting dev dataset processing
+2025-08-29 02:03:11,790 - INFO - Loading simplified NQ dev dataset...
+2025-08-29 02:03:11,790 - INFO - Starting to read nq_open/NQ-open.dev.jsonl
+2025-08-29 02:03:14,178 - INFO - Finished loading. Processed 7830 lines, loaded 7830 questions
+2025-08-29 02:03:14,179 - INFO - Loaded 7830 questions from simplified NQ dev dataset
+2025-08-29 02:03:14,179 - INFO - Processing dev dataset...
+2025-08-29 02:03:14,299 - INFO - Dev dataset: processed 1800, matched 0
+2025-08-29 02:03:14,300 - INFO - Processing completed in 0:00:02.511378
